@@ -7,21 +7,44 @@ import os
 # [1] 데이터 설계 및 상수 정의
 # ==========================================
 
-# 기획서 2.2항: ABCDE 모델 데이터를 담을 클래스
+HISTORY_FILE = "inner_peace_history.txt"
+
 class MentalRecord:
-    def __init__(self, adversity, belief, consequence, disputation, effect):
-        self.adversity = adversity  # A: 선행사건
-        self.belief = belief        # B: 신념 (비합리적 생각)
-        self.consequence = consequence # C: 결과 (감정 강도 1~10)
-        self.disputation = disputation # D: 논박
-        self.effect = effect        # E: 효과 (합리적 신념)
-        self.date = time.strftime('%Y-%m-%d %H:%M:%S') # 기록 시간
+    def __init__(self, adversity, belief, consequence, disputation, effect, memo=""):
+        self.adversity = adversity
+        self.belief = belief
+        self.consequence = consequence
+        self.disputation = disputation
+        self.effect = effect
+        self.memo = memo
+        self.date = time.strftime('%Y-%m-%d %H:%M:%S')
 
-    # 객체 정보를 문자열로 반환 (저장/출력용)
     def __str__(self):
-        return f"[{self.date}] 사건: {self.adversity} | 감정점수: {self.consequence}"
+        memo_str = f" | 메모: {self.memo}" if self.memo else ""
+        return f"[{self.date}] [ABCDE] 사건: {self.adversity} | 감정점수: {self.consequence} | 새로운 생각: {self.effect}{memo_str}"
 
-# 기획서 2.2 (2)항: 논박(D) 단계에서 사용할 '가짜 AI' 질문 리스트
+class SOSRecord:
+    def __init__(self, course, memo="", grounding=None):
+        self.course = course
+        self.memo = memo
+        self.grounding = grounding if grounding is not None else {}
+        self.date = time.strftime('%Y-%m-%d %H:%M:%S')
+
+    def __str__(self):
+        memo_str = f" | 메모: {self.memo}" if self.memo else ""
+        grounding_str = ""
+        if self.grounding:
+            g = self.grounding
+            grounding_str = (
+                f" | 그라운딩: "
+                f"본 것({g.get('sight', '')}), "
+                f"느낀 것({g.get('touch', '')}), "
+                f"들은 것({g.get('sound', '')}), "
+                f"맡은 것({g.get('smell', '')}), "
+                f"맛본 것({g.get('taste', '')})"
+            )
+        return f"[{self.date}] [SOS] {self.course}{memo_str}{grounding_str}"
+
 QUESTION_BANK = [
     "그 생각이 100% 사실이라는 확실한 법적 증거가 있습니까?",
     "그렇게 생각하는 것이 지금 이 문제를 해결하는 데 실제로 도움이 됩니까?",
@@ -30,116 +53,192 @@ QUESTION_BANK = [
     "1년 뒤에도 이 일이 지금처럼 내 인생을 뒤흔들 만큼 심각할까요?"
 ]
 
+class Color:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # ==========================================
 # [2] 핵심 기능 함수 구현
 # ==========================================
 
-def sos_mode():
-    """
-    기획서 2.2 (1): 급성 스트레스 완화 (SOS 모드)
-    4-7-8 호흡법을 텍스트와 타이머로 안내
-    """
-    print("\n" + "="*40)
-    print("   [SOS 모드] 4-7-8 호흡 테라피")
-    print("="*40)
-    print("긴장을 풀고 화면의 지시에 따라 호흡하세요.")
-    print("준비되셨으면 Enter를 누르세요...", end="")
-    input()
+def save_record(record):
+    try:
+        with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+            f.write(str(record) + "\n")
+        return True
+    except IOError as e:
+        print(f"{Color.FAIL}오류: 파일을 쓰는 데 실패했습니다. ({e}){Color.ENDC}")
+        return False
 
-    # 간단하게 3세트만 반복 (실제 구현 시 늘릴 수 있음)
-    for i in range(1, 4):
-        print(f"\n[Cycle {i}/3]")
-        
-        print("들이마시세요 (4초) ... 흡!", end="")
-        sys.stdout.flush()
-        time.sleep(4)
-        print(" 완료")
-        
-        print("참으세요 (7초) ....... 멈춤", end="")
-        sys.stdout.flush()
-        time.sleep(7)
-        print(" 완료")
-        
-        print("내뱉으세요 (8초) ..... 후~", end="")
-        sys.stdout.flush()
-        time.sleep(8)
-        print(" 완료")
-    
-    print("\n[안내] 호흡이 끝났습니다. 마음이 조금 편안해지셨나요?")
-    input("메뉴로 돌아가려면 Enter를 누르세요.")
+def load_records():
+    if not os.path.exists(HISTORY_FILE):
+        return []
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            return f.readlines()
+    except IOError as e:
+        print(f"{Color.FAIL}오류: 파일을 읽는 데 실패했습니다. ({e}){Color.ENDC}")
+        return []
 
-def abcde_training():
-    """
-    기획서 2.2 (2): 사고 전환 훈련 (ABCDE 모델)
-    사용자 입력을 받고, 랜덤 질문을 던진 후 결과를 저장
-    """
-    print("\n" + "="*40)
-    print("   [사고 전환 훈련] ABCDE 모델링")
-    print("="*40)
-    
-    # [cite_start]A: 선행사건 [cite: 26]
-    adversity = input("\n[A] 어떤 사건 때문에 스트레스를 받으셨나요?\n>> ")
-    
-    # [cite_start]B: 신념 [cite: 27]
-    belief = input("\n[B] 그 사건에 대해 순간적으로 든 생각은 무엇인가요?\n>> ")
-    
-    # [cite_start]C: 결과 [cite: 28]
+def get_numeric_input(prompt, min_val, max_val):
     while True:
         try:
-            consequence = int(input("\n[C] 그로 인한 감정의 고통을 1~10 사이 숫자로 입력해주세요.\n>> "))
-            if 1 <= consequence <= 10:
-                break
-            print("1에서 10 사이의 숫자로만 입력해주세요.")
+            val = int(input(prompt))
+            if min_val <= val <= max_val:
+                return val
+            print(f"{Color.WARNING}{min_val}에서 {max_val} 사이의 숫자로만 입력해주세요.{Color.ENDC}")
         except ValueError:
-            print("숫자를 입력해주세요.")
+            print(f"{Color.FAIL}숫자를 입력해주세요.{Color.ENDC}")
 
-    # [cite_start]D: 논박 (핵심 기능) [cite: 29, 30]
+def get_yes_no_input(prompt):
+    while True:
+        choice = input(prompt).lower()
+        if choice in ['y', 'yes']:
+            return True
+        elif choice in ['n', 'no']:
+            return False
+        print(f"{Color.WARNING}'y' 또는 'n'으로만 입력해주세요.{Color.ENDC}")
+
+def sos_mode():
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[SOS 모드] 4-7-8 호흡 테라피{Color.ENDC}")
+    print("="*40)
+    
+    print(f"{Color.BLUE}이 호흡은 심장 박동을 느리게 하고, 우리 몸의 '긴장 모드'를 '휴식 모드'로 바꾸는 데 도움을 줍니다.{Color.ENDC}")
+    
+    print("\n" + f"{Color.BOLD}코스 선택:{Color.ENDC}")
+    print("1. 약 1분 (3회 반복)")
+    print("2. 약 2분 (6회 반복)")
+    print("3. 약 3분 (9회 반복)")
+    course_choice = get_numeric_input(f"{Color.BOLD}원하는 코스를 선택하세요 (1-3) >>{Color.ENDC} ", 1, 3)
+    
+    cycles = course_choice * 3
+    course_name = f"약 {course_choice}분"
+
     print("\n" + "-"*40)
-    print("🤖 Inner-Peace AI가 당신의 생각에 대해 묻습니다:")
-    ai_question = random.choice(QUESTION_BANK) # 랜덤 질문 선택
-    print(f"\"{ai_question}\"")
+    print(f"{Color.BOLD}자세 안내:{Color.ENDC}")
+    print("  - 허리를 세우고, 어깨 힘을 살짝 풀어 주세요.")
+    print("  - 턱을 살짝 당겨서 목이 편안한 위치로 오게 해 주세요.")
+    print("-" * 40)
+    input("준비되셨으면 Enter를 누르세요...")
+
+    coaching_messages = [
+        "지금은 그냥 리듬에 익숙해지는 단계입니다.",
+        "이번에는 내쉴 때 어깨와 턱의 힘이 빠지는 느낌에 집중해 보세요.",
+        "이번에는 마음속으로 '괜찮아' 하고 되뇌어 보세요."
+    ]
+
+    for i in range(1, cycles + 1):
+        print(f"\n{Color.BOLD}[Cycle {i}/{cycles}]{Color.ENDC}")
+        message_index = (i - 1) % len(coaching_messages)
+        print(f"{Color.WARNING}코칭: {coaching_messages[message_index]}{Color.ENDC}")
+        
+        print(f"{Color.GREEN}들이마시세요 (4초)...{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(4); print(" 흡!")
+        print(f"{Color.WARNING}참으세요 (7초).......{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(7); print(" 멈춤")
+        print(f"{Color.BLUE}내뱉으세요 (8초).....{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(8); print(" 후~")
+
+    print(f"\n{Color.GREEN}[안내] 호흡이 끝났습니다. 마음이 조금 편안해지셨나요?{Color.ENDC}")
+
+    # Add grounding
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[그라운딩] 5-4-3-2-1 현실감 회복{Color.ENDC}")
+    print("="*40)
+    print("지금 이 순간, 주변을 천천히 둘러보며 아래를 적어 보세요.")
+    
+    grounding_sight = input("1) 지금 눈에 보이는 것 5가지:\n> ")
+    grounding_touch = input("2) 지금 몸으로 느껴지는 촉감(의자, 옷, 피부 등) 4가지:\n> ")
+    grounding_sound = input("3) 지금 들리는 소리 3가지:\n> ")
+    grounding_smell = input("4) 지금 맡을 수 있는 냄새 2가지:\n> ")
+    grounding_taste = input("5) 지금 떠오르는 맛 1가지:\n> ")
+
+    grounding_data = {
+        "sight": grounding_sight,
+        "touch": grounding_touch,
+        "sound": grounding_sound,
+        "smell": grounding_smell,
+        "taste": grounding_taste,
+    }
+    
+    memo = input(f"\n{Color.BLUE+Color.BOLD}(선택) 현재 경험에 대해 한 줄 메모를 남겨보세요:{Color.ENDC}\n>> ")
+
+    if get_yes_no_input(f"\n{Color.BOLD}이 세션을 기록하시겠습니까? (y/n){Color.ENDC} "):
+        record = SOSRecord(course_name, memo, grounding_data)
+        if save_record(record):
+            print(f"\n{Color.GREEN}[저장 완료] 오늘의 경험이 안전하게 기록되었습니다.{Color.ENDC}")
+
+    input("\n메뉴로 돌아가려면 Enter를 누르세요.")
+
+
+def abcde_training():
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[사고 전환 훈련] ABCDE 모델링{Color.ENDC}")
+    print("="*40)
+    
+    adversity = input(f"\n{Color.BLUE+Color.BOLD}[A] 어떤 사건 때문에 스트레스를 받으셨나요?{Color.ENDC}\n>> ")
+    belief = input(f"\n{Color.BLUE+Color.BOLD}[B] 그 사건에 대해 순간적으로 든 생각은 무엇인가요?{Color.ENDC}\n>> ")
+    consequence = get_numeric_input(f"\n{Color.BLUE+Color.BOLD}[C] 그로 인한 감정의 고통을 1~10 사이 숫자로 입력해주세요.{Color.ENDC}\n>> ", 1, 10)
+
+    print("\n" + "-"*40)
+    print(f"🤖 {Color.HEADER+Color.BOLD}Inner-Peace AI가 당신의 생각에 대해 묻습니다:{Color.ENDC}")
+    ai_question = random.choice(QUESTION_BANK)
+    print(f"{Color.CYAN}\"{ai_question}\"{Color.ENDC}")
     print("-"*40)
     
-    disputation = input("\n[D] 위 질문에 대해 스스로 반박하거나 답변해 보세요.\n>> ")
-
-    # [cite_start]E: 효과 [cite: 31]
-    effect = input("\n[E] 논박을 통해 새롭게 정리된 합리적인 생각은 무엇인가요?\n>> ")
-
-    # 객체 생성 (나중에 파일 저장 기능과 연결)
-    record = MentalRecord(adversity, belief, consequence, disputation, effect)
+    disputation = input(f"\n{Color.BLUE+Color.BOLD}[D] 위 질문에 대해 스스로 반박하거나 답변해 보세요.{Color.ENDC}\n>> ")
+    effect = input(f"\n{Color.BLUE+Color.BOLD}[E] 논박을 통해 새롭게 정리된 합리적인 생각은 무엇인가요?{Color.ENDC}\n>> ")
     
-    print("\n[저장 완료] 성공적으로 기록되었습니다. (현재는 메모리에만 저장됨)")
-    # TODO: 여기서 save_file(record) 같은 함수를 호출해야 함
-    input("메뉴로 돌아가려면 Enter를 누르세요.")
+    memo = input(f"\n{Color.BLUE+Color.BOLD}(선택) 현재 훈련에 대해 한 줄 메모를 남겨보세요:{Color.ENDC}\n>> ")
+
+    if get_yes_no_input(f"\n{Color.BOLD}이 훈련을 기록하시겠습니까? (y/n){Color.ENDC} "):
+        record = MentalRecord(adversity, belief, consequence, disputation, effect, memo)
+        if save_record(record):
+            print(f"\n{Color.GREEN}[저장 완료] 오늘의 훈련이 성공적으로 기록되었습니다.{Color.ENDC}")
+
+    input("\n메뉴로 돌아가려면 Enter를 누르세요.")
 
 def view_history():
-    """
-    기획서 2.2 (3): 사고 기록 조회
-    """
-    print("\n[기록 조회] 현재는 파일 저장 기능이 구현되지 않았습니다.")
-    # TODO: 파일 입출력 구현 후 연동
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[사고 기록 조회] 나의 마음 일지{Color.ENDC}")
+    print("="*40)
+
+    records = load_records()
+    if not records:
+        print("\n아직 저장된 기록이 없습니다.")
+        print("사고 전환 훈련이나 SOS 모드를 통해 첫 기록을 남겨보세요.")
+    else:
+        print("\n[최신순으로 모든 기록을 표시합니다]\n")
+        for record in reversed(records):
+            print(record.strip())
+            print("-" * 20)
+
+    print("\n" + "="*40)
     input("메뉴로 돌아가려면 Enter를 누르세요.")
 
-# ==========================================
-# [3] 메인 화면 및 루프
-# ==========================================
-
 def print_menu():
-    # [cite_start]기획서 2.1: 메인 메뉴 구성 [cite: 13-18]
-    os.system('cls' if os.name == 'nt' else 'clear') # 화면 지우기 (선택사항)
-    print("\n" + "■"*40)
-    print("      Inner-Peace : 마음 챙김 도구")
-    print("■"*40)
-    print("1. 급성 스트레스 완화 (SOS 모드)")
-    print("2. 사고 전환 훈련 (ABCDE 모델링)")
-    print("3. 사고 기록 조회 (History)")
-    print("4. 프로그램 종료")
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\n" + Color.HEADER + "■"*40 + Color.ENDC)
+    print(f"      {Color.BOLD}Inner-Peace : 마음 챙김 도구{Color.ENDC}")
+    print(Color.HEADER + "■"*40 + Color.ENDC)
+    print(f"{Color.GREEN}1. 급성 스트레스 완화 (SOS 모드){Color.ENDC}")
+    print(f"{Color.GREEN}2. 사고 전환 훈련 (ABCDE 모델링){Color.ENDC}")
+    print(f"{Color.GREEN}3. 사고 기록 조회 (History){Color.ENDC}")
+    print(f"{Color.GREEN}4. 프로그램 종료{Color.ENDC}")
     print("-" * 40)
 
 def main():
+    if os.name == 'nt':
+        os.system('color')
+
     while True:
         print_menu()
-        choice = input("원하는 기능을 선택하세요 >> ")
+        choice = input(f"{Color.BOLD}원하는 기능을 선택하세요 >>{Color.ENDC} ")
 
         if choice == '1':
             sos_mode()
@@ -148,10 +247,10 @@ def main():
         elif choice == '3':
             view_history()
         elif choice == '4':
-            print("\n프로그램을 종료합니다. 오늘도 평안하세요.")
+            print(f"\n{Color.CYAN}프로그램을 종료합니다. 오늘도 평안하세요.{Color.ENDC}")
             sys.exit()
         else:
-            print("\n[!] 잘못된 입력입니다.")
+            print(f"\n{Color.FAIL}[!] 잘못된 입력입니다.{Color.ENDC}")
             time.sleep(1)
 
 if __name__ == "__main__":
