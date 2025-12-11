@@ -2,12 +2,13 @@ import sys
 import time
 import random
 import os
+import json
 
 # ==========================================
 # [1] 데이터 설계 및 상수 정의
 # ==========================================
 
-HISTORY_FILE = "inner_peace_history.txt"
+HISTORY_FILE = "inner_peace_history.json"
 
 class MentalRecord:
     def __init__(self, adversity, belief, consequence, disputation, effect, memo=""):
@@ -22,6 +23,18 @@ class MentalRecord:
     def __str__(self):
         memo_str = f" | 메모: {self.memo}" if self.memo else ""
         return f"[{self.date}] [ABCDE] 사건: {self.adversity} | 감정점수: {self.consequence} | 새로운 생각: {self.effect}{memo_str}"
+
+    def to_dict(self):
+        return {
+            "type": "ABCDE",
+            "date": self.date,
+            "adversity": self.adversity,
+            "belief": self.belief,
+            "consequence": self.consequence,
+            "disputation": self.disputation,
+            "effect": self.effect,
+            "memo": self.memo,
+        }
 
 class SOSRecord:
     def __init__(self, course, memo="", grounding=None):
@@ -44,6 +57,15 @@ class SOSRecord:
                 f"맛본 것({g.get('taste', '')})"
             )
         return f"[{self.date}] [SOS] {self.course}{memo_str}{grounding_str}"
+
+    def to_dict(self):
+        return {
+            "type": "SOS",
+            "date": self.date,
+            "course": self.course,
+            "memo": self.memo,
+            "grounding": self.grounding,
+        }
 
 QUESTION_BANK = [
     "그 생각이 100% 사실이라는 확실한 법적 증거가 있습니까?",
@@ -70,10 +92,12 @@ class Color:
 
 def save_record(record):
     try:
-        with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-            f.write(str(record) + "\n")
+        records = load_records()
+        records.append(record.to_dict())
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False, indent=4)
         return True
-    except IOError as e:
+    except (IOError, TypeError) as e:
         print(f"{Color.FAIL}오류: 파일을 쓰는 데 실패했습니다. ({e}){Color.ENDC}")
         return False
 
@@ -82,15 +106,19 @@ def load_records():
         return []
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            return f.readlines()
-    except IOError as e:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
         print(f"{Color.FAIL}오류: 파일을 읽는 데 실패했습니다. ({e}){Color.ENDC}")
         return []
 
-def get_numeric_input(prompt, min_val, max_val):
+def get_numeric_input(prompt, min_val, max_val, cancel_value=None):
     while True:
         try:
-            val = int(input(prompt))
+            val_input = input(prompt)
+            if cancel_value is not None and val_input.lower() == str(cancel_value).lower():
+                return cancel_value
+            
+            val = int(val_input)
             if min_val <= val <= max_val:
                 return val
             print(f"{Color.WARNING}{min_val}에서 {max_val} 사이의 숫자로만 입력해주세요.{Color.ENDC}")
@@ -117,8 +145,15 @@ def sos_mode():
     print("1. 약 1분 (3회 반복)")
     print("2. 약 2분 (6회 반복)")
     print("3. 약 3분 (9회 반복)")
-    course_choice = get_numeric_input(f"{Color.BOLD}원하는 코스를 선택하세요 (1-3) >>{Color.ENDC} ", 1, 3)
+    print(f"9. {Color.WARNING}취소하고 메인 메뉴로 돌아가기{Color.ENDC}")
     
+    course_choice = get_numeric_input(f"{Color.BOLD}원하는 코스를 선택하세요 (1-3 또는 9) >>{Color.ENDC} ", 1, 3, cancel_value=9)
+    
+    if course_choice == 9:
+        print(f"{Color.WARNING}SOS 모드를 취소하고 메인 메뉴로 돌아갑니다.{Color.ENDC}")
+        input("계속하려면 Enter를 누르세요.")
+        return
+
     cycles = course_choice * 3
     course_name = f"약 {course_choice}분"
 
@@ -215,7 +250,35 @@ def view_history():
     else:
         print("\n[최신순으로 모든 기록을 표시합니다]\n")
         for record in reversed(records):
-            print(record.strip())
+            date_str = record.get('date', '날짜 없음')
+            memo_str = f" | 메모: {record.get('memo')}" if record.get('memo') else ""
+            
+            if record.get('type') == 'ABCDE':
+                print(
+                    f"[{date_str}] [ABCDE] "
+                    f"사건: {record.get('adversity', '')} | "
+                    f"감정점수: {record.get('consequence', '')} | "
+                    f"새로운 생각: {record.get('effect', '')}{memo_str}"
+                )
+            elif record.get('type') == 'SOS':
+                g = record.get('grounding', {})
+                grounding_str = ""
+                if g:
+                    grounding_str = (
+                        f" | 그라운딩: "
+                        f"본 것({g.get('sight', '')}), "
+                        f"느낀 것({g.get('touch', '')}), "
+                        f"들은 것({g.get('sound', '')}), "
+                        f"맡은 것({g.get('smell', '')}), "
+                        f"맛본 것({g.get('taste', '')})"
+                    )
+                print(
+                    f"[{date_str}] [SOS] "
+                    f"{record.get('course', '')}{memo_str}{grounding_str}"
+                )
+            else:
+                print(f"[{date_str}] 알 수 없는 기록 타입: {record}")
+
             print("-" * 20)
 
     print("\n" + "="*40)
