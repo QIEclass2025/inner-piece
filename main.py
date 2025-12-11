@@ -1,20 +1,71 @@
-import tkinter as tk
-from tkinter import messagebox
+import sys
 import time
 import random
+import os
+import json
 
 # ==========================================
-# [1] 데이터 및 로직 (기존과 동일)
+# [1] 데이터 설계 및 상수 정의
 # ==========================================
+
+HISTORY_FILE = "inner_peace_history.json"
 
 class MentalRecord:
-    def __init__(self, adversity, belief, consequence, disputation, effect):
+    def __init__(self, adversity, belief, consequence, disputation, effect, memo=""):
         self.adversity = adversity
         self.belief = belief
         self.consequence = consequence
         self.disputation = disputation
         self.effect = effect
+        self.memo = memo
         self.date = time.strftime('%Y-%m-%d %H:%M:%S')
+
+    def __str__(self):
+        memo_str = f" | 메모: {self.memo}" if self.memo else ""
+        return f"[{self.date}] [ABCDE] 사건: {self.adversity} | 감정점수: {self.consequence} | 새로운 생각: {self.effect}{memo_str}"
+
+    def to_dict(self):
+        return {
+            "type": "ABCDE",
+            "date": self.date,
+            "adversity": self.adversity,
+            "belief": self.belief,
+            "consequence": self.consequence,
+            "disputation": self.disputation,
+            "effect": self.effect,
+            "memo": self.memo,
+        }
+
+class SOSRecord:
+    def __init__(self, course, memo="", grounding=None):
+        self.course = course
+        self.memo = memo
+        self.grounding = grounding if grounding is not None else {}
+        self.date = time.strftime('%Y-%m-%d %H:%M:%S')
+
+    def __str__(self):
+        memo_str = f" | 메모: {self.memo}" if self.memo else ""
+        grounding_str = ""
+        if self.grounding:
+            g = self.grounding
+            grounding_str = (
+                f" | 그라운딩: "
+                f"본 것({g.get('sight', '')}), "
+                f"느낀 것({g.get('touch', '')}), "
+                f"들은 것({g.get('sound', '')}), "
+                f"맡은 것({g.get('smell', '')}), "
+                f"맛본 것({g.get('taste', '')})"
+            )
+        return f"[{self.date}] [SOS] {self.course}{memo_str}{grounding_str}"
+
+    def to_dict(self):
+        return {
+            "type": "SOS",
+            "date": self.date,
+            "course": self.course,
+            "memo": self.memo,
+            "grounding": self.grounding,
+        }
 
 QUESTION_BANK = [
     "그 생각이 100% 사실이라는 확실한 법적 증거가 있습니까?",
@@ -24,161 +75,246 @@ QUESTION_BANK = [
     "1년 뒤에도 이 일이 지금처럼 내 인생을 뒤흔들 만큼 심각할까요?"
 ]
 
-# ==========================================
-# [2] GUI 애플리케이션 클래스
-# ==========================================
-
-class InnerPeaceApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Inner-Peace: 디지털 인지 치료")
-        self.root.geometry("500x600") # 창 크기 설정
-        
-        # 현재 화면을 담을 프레임 (컨테이너)
-        self.current_frame = None
-        
-        # 앱 시작 시 메인 메뉴 보여주기
-        self.show_main_menu()
-
-    # --- 화면 전환 유틸리티 ---
-    def switch_frame(self, frame_class):
-        """기존 화면을 지우고 새로운 화면을 띄우는 함수"""
-        if self.current_frame:
-            self.current_frame.destroy()
-        self.current_frame = frame_class(self.root, self)
-        self.current_frame.pack(fill="both", expand=True)
-
-    def show_main_menu(self):
-        self.switch_frame(MainMenuFrame)
-
-    def show_sos_mode(self):
-        self.switch_frame(SOSModeFrame)
-
-    def show_abcde_training(self):
-        self.switch_frame(ABCDEFrame)
+class Color:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 # ==========================================
-# [3] 각 화면(Frame) 정의
+# [2] 핵심 기능 함수 구현
 # ==========================================
 
-# 1. 메인 메뉴 화면
-class MainMenuFrame(tk.Frame):
-    def __init__(self, master, app):
-        super().__init__(master)
-        self.app = app
-        
-        # 제목
-        tk.Label(self, text="Inner-Peace", font=("Helvetica", 24, "bold"), pady=40).pack()
-        tk.Label(self, text="마음 챙김 도구", font=("Helvetica", 12)).pack()
-        
-        # 버튼들
-        tk.Button(self, text="1. 급성 스트레스 완화 (SOS)", font=("Helvetica", 14), width=30, height=2,
-                  command=self.app.show_sos_mode).pack(pady=10)
-        
-        tk.Button(self, text="2. 사고 전환 훈련 (ABCDE)", font=("Helvetica", 14), width=30, height=2,
-                  command=self.app.show_abcde_training).pack(pady=10)
-        
-        tk.Button(self, text="3. 종료", font=("Helvetica", 14), width=30, height=2,
-                  command=master.quit).pack(pady=10)
+def save_record(record):
+    try:
+        records = load_records()
+        records.append(record.to_dict())
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False, indent=4)
+        return True
+    except (IOError, TypeError) as e:
+        print(f"{Color.FAIL}오류: 파일을 쓰는 데 실패했습니다. ({e}){Color.ENDC}")
+        return False
 
-# 2. SOS 모드 화면
-class SOSModeFrame(tk.Frame):
-    def __init__(self, master, app):
-        super().__init__(master)
-        self.app = app
-        self.step = 0 # 호흡 단계
-        
-        tk.Label(self, text="SOS: 4-7-8 호흡", font=("Helvetica", 18, "bold"), pady=20).pack()
-        
-        self.status_label = tk.Label(self, text="시작 버튼을 누르세요", font=("Helvetica", 20), fg="blue")
-        self.status_label.pack(pady=50)
-        
-        self.btn_start = tk.Button(self, text="호흡 시작", command=self.start_breathing)
-        self.btn_start.pack()
-        
-        tk.Button(self, text="메인으로 돌아가기", command=self.app.show_main_menu).pack(side="bottom", pady=20)
+def load_records():
+    if not os.path.exists(HISTORY_FILE):
+        return []
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"{Color.FAIL}오류: 파일을 읽는 데 실패했습니다. ({e}){Color.ENDC}")
+        return []
 
-    def start_breathing(self):
-        self.btn_start.config(state="disabled") # 중복 클릭 방지
-        self.run_cycle(3) # 3세트 반복
+def get_numeric_input(prompt, min_val, max_val, cancel_value=None):
+    while True:
+        try:
+            val_input = input(prompt)
+            if cancel_value is not None and val_input.lower() == str(cancel_value).lower():
+                return cancel_value
+            
+            val = int(val_input)
+            if min_val <= val <= max_val:
+                return val
+            print(f"{Color.WARNING}{min_val}에서 {max_val} 사이의 숫자로만 입력해주세요.{Color.ENDC}")
+        except ValueError:
+            print(f"{Color.FAIL}숫자를 입력해주세요.{Color.ENDC}")
 
-    def run_cycle(self, remaining_cycles):
-        if remaining_cycles <= 0:
-            self.status_label.config(text="편안해지셨나요?", fg="green")
-            self.btn_start.config(state="normal")
-            return
+def get_yes_no_input(prompt):
+    while True:
+        choice = input(prompt).lower()
+        if choice in ['y', 'yes']:
+            return True
+        elif choice in ['n', 'no']:
+            return False
+        print(f"{Color.WARNING}'y' 또는 'n'으로만 입력해주세요.{Color.ENDC}")
 
-        # GUI에서는 time.sleep을 쓰면 멈춥니다. after()를 써야 합니다.
-        # 1. 들이마시기 (4초)
-        self.status_label.config(text="들이마시세요 (4초)", fg="red")
-        self.after(4000, lambda: self.hold_breath(remaining_cycles))
+def sos_mode():
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[SOS 모드] 4-7-8 호흡 테라피{Color.ENDC}")
+    print("="*40)
+    
+    print(f"{Color.BLUE}이 호흡은 심장 박동을 느리게 하고, 우리 몸의 '긴장 모드'를 '휴식 모드'로 바꾸는 데 도움을 줍니다.{Color.ENDC}")
+    
+    print("\n" + f"{Color.BOLD}코스 선택:{Color.ENDC}")
+    print("1. 약 1분 (3회 반복)")
+    print("2. 약 2분 (6회 반복)")
+    print("3. 약 3분 (9회 반복)")
+    print(f"9. {Color.WARNING}취소하고 메인 메뉴로 돌아가기{Color.ENDC}")
+    
+    course_choice = get_numeric_input(f"{Color.BOLD}원하는 코스를 선택하세요 (1-3 또는 9) >>{Color.ENDC} ", 1, 3, cancel_value=9)
+    
+    if course_choice == 9:
+        print(f"{Color.WARNING}SOS 모드를 취소하고 메인 메뉴로 돌아갑니다.{Color.ENDC}")
+        input("계속하려면 Enter를 누르세요.")
+        return
 
-    def hold_breath(self, remaining_cycles):
-        # 2. 참기 (7초)
-        self.status_label.config(text="숨을 참으세요 (7초)", fg="orange")
-        self.after(7000, lambda: self.exhale_breath(remaining_cycles))
+    cycles = course_choice * 3
+    course_name = f"약 {course_choice}분"
 
-    def exhale_breath(self, remaining_cycles):
-        # 3. 내뱉기 (8초)
-        self.status_label.config(text="내뱉으세요 (8초)", fg="blue")
-        self.after(8000, lambda: self.run_cycle(remaining_cycles - 1))
+    print("\n" + "-"*40)
+    print(f"{Color.BOLD}자세 안내:{Color.ENDC}")
+    print("  - 허리를 세우고, 어깨 힘을 살짝 풀어 주세요.")
+    print("  - 턱을 살짝 당겨서 목이 편안한 위치로 오게 해 주세요.")
+    print("-" * 40)
+    input("준비되셨으면 Enter를 누르세요...")
 
-# 3. ABCDE 훈련 화면
-class ABCDEFrame(tk.Frame):
-    def __init__(self, master, app):
-        super().__init__(master)
-        self.app = app
-        
-        tk.Label(self, text="ABCDE 사고 전환", font=("Helvetica", 16, "bold")).pack(pady=10)
-        
-        # 입력 필드들을 담을 컨테이너
-        form_frame = tk.Frame(self)
-        form_frame.pack(pady=10)
-        
-        # A: 사건
-        tk.Label(form_frame, text="[A] 어떤 사건이 있었나요?").grid(row=0, column=0, sticky="w")
-        self.entry_a = tk.Entry(form_frame, width=40)
-        self.entry_a.grid(row=1, column=0, pady=(0, 10))
-        
-        # B: 신념
-        tk.Label(form_frame, text="[B] 그때 든 생각은?").grid(row=2, column=0, sticky="w")
-        self.entry_b = tk.Entry(form_frame, width=40)
-        self.entry_b.grid(row=3, column=0, pady=(0, 10))
+    coaching_messages = [
+        "지금은 그냥 리듬에 익숙해지는 단계입니다.",
+        "이번에는 내쉴 때 어깨와 턱의 힘이 빠지는 느낌에 집중해 보세요.",
+        "이번에는 마음속으로 '괜찮아' 하고 되뇌어 보세요."
+    ]
 
-        # D: 논박 (버튼을 누르면 질문이 나옴)
-        self.btn_ask = tk.Button(self, text="AI 논박 질문 받기", command=self.generate_question, bg="lightgray")
-        self.btn_ask.pack(pady=5)
+    for i in range(1, cycles + 1):
+        print(f"\n{Color.BOLD}[Cycle {i}/{cycles}]{Color.ENDC}")
+        message_index = (i - 1) % len(coaching_messages)
+        print(f"{Color.WARNING}코칭: {coaching_messages[message_index]}{Color.ENDC}")
         
-        self.lbl_question = tk.Label(self, text="", fg="blue", wraplength=400)
-        self.lbl_question.pack(pady=5)
-        
-        # D 답변
-        tk.Label(self, text="[D] 반박해 보세요:").pack()
-        self.entry_d = tk.Entry(self, width=40)
-        self.entry_d.pack()
-        
-        # 저장 버튼
-        tk.Button(self, text="기록 저장하기", command=self.save_record, bg="lightblue").pack(pady=20)
-        
-        tk.Button(self, text="메인으로 돌아가기", command=self.app.show_main_menu).pack(side="bottom", pady=10)
+        print(f"{Color.GREEN}들이마시세요 (4초)...{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(4); print(" 흡!")
+        print(f"{Color.WARNING}참으세요 (7초).......{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(7); print(" 멈춤")
+        print(f"{Color.BLUE}내뱉으세요 (8초).....{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(8); print(" 후~")
 
-    def generate_question(self):
-        q = random.choice(QUESTION_BANK)
-        self.lbl_question.config(text=f"AI: {q}")
+    print(f"\n{Color.GREEN}[안내] 호흡이 끝났습니다. 마음이 조금 편안해지셨나요?{Color.ENDC}")
 
-    def save_record(self):
-        # 간단한 저장 확인 메시지
-        if not self.entry_a.get() or not self.entry_d.get():
-            messagebox.showwarning("경고", "내용을 입력해주세요.")
-            return
-        
-        messagebox.showinfo("성공", "마음 속에 기록되었습니다.\n(파일 저장은 다음 단계 구현)")
-        self.app.show_main_menu()
+    # Add grounding
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[그라운딩] 5-4-3-2-1 현실감 회복{Color.ENDC}")
+    print("="*40)
+    print("지금 이 순간, 주변을 천천히 둘러보며 아래를 적어 보세요.")
+    
+    grounding_sight = input("1) 지금 눈에 보이는 것 5가지:\n> ")
+    grounding_touch = input("2) 지금 몸으로 느껴지는 촉감(의자, 옷, 피부 등) 4가지:\n> ")
+    grounding_sound = input("3) 지금 들리는 소리 3가지:\n> ")
+    grounding_smell = input("4) 지금 맡을 수 있는 냄새 2가지:\n> ")
+    grounding_taste = input("5) 지금 떠오르는 맛 1가지:\n> ")
 
-# ==========================================
-# [4] 메인 실행
-# ==========================================
+    grounding_data = {
+        "sight": grounding_sight,
+        "touch": grounding_touch,
+        "sound": grounding_sound,
+        "smell": grounding_smell,
+        "taste": grounding_taste,
+    }
+    
+    memo = input(f"\n{Color.BLUE+Color.BOLD}(선택) 현재 경험에 대해 한 줄 메모를 남겨보세요:{Color.ENDC}\n>> ")
+
+    if get_yes_no_input(f"\n{Color.BOLD}이 세션을 기록하시겠습니까? (y/n){Color.ENDC} "):
+        record = SOSRecord(course_name, memo, grounding_data)
+        if save_record(record):
+            print(f"\n{Color.GREEN}[저장 완료] 오늘의 경험이 안전하게 기록되었습니다.{Color.ENDC}")
+
+    input("\n메뉴로 돌아가려면 Enter를 누르세요.")
+
+
+def abcde_training():
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[사고 전환 훈련] ABCDE 모델링{Color.ENDC}")
+    print("="*40)
+    
+    adversity = input(f"\n{Color.BLUE+Color.BOLD}[A] 어떤 사건 때문에 스트레스를 받으셨나요?{Color.ENDC}\n>> ")
+    belief = input(f"\n{Color.BLUE+Color.BOLD}[B] 그 사건에 대해 순간적으로 든 생각은 무엇인가요?{Color.ENDC}\n>> ")
+    consequence = get_numeric_input(f"\n{Color.BLUE+Color.BOLD}[C] 그로 인한 감정의 고통을 1~10 사이 숫자로 입력해주세요.{Color.ENDC}\n>> ", 1, 10)
+
+    print("\n" + "-"*40)
+    print(f"🤖 {Color.HEADER+Color.BOLD}Inner-Peace AI가 당신의 생각에 대해 묻습니다:{Color.ENDC}")
+    ai_question = random.choice(QUESTION_BANK)
+    print(f"{Color.CYAN}\"{ai_question}\"{Color.ENDC}")
+    print("-"*40)
+    
+    disputation = input(f"\n{Color.BLUE+Color.BOLD}[D] 위 질문에 대해 스스로 반박하거나 답변해 보세요.{Color.ENDC}\n>> ")
+    effect = input(f"\n{Color.BLUE+Color.BOLD}[E] 논박을 통해 새롭게 정리된 합리적인 생각은 무엇인가요?{Color.ENDC}\n>> ")
+    
+    memo = input(f"\n{Color.BLUE+Color.BOLD}(선택) 현재 훈련에 대해 한 줄 메모를 남겨보세요:{Color.ENDC}\n>> ")
+
+    if get_yes_no_input(f"\n{Color.BOLD}이 훈련을 기록하시겠습니까? (y/n){Color.ENDC} "):
+        record = MentalRecord(adversity, belief, consequence, disputation, effect, memo)
+        if save_record(record):
+            print(f"\n{Color.GREEN}[저장 완료] 오늘의 훈련이 성공적으로 기록되었습니다.{Color.ENDC}")
+
+    input("\n메뉴로 돌아가려면 Enter를 누르세요.")
+
+def view_history():
+    print("\n" + "="*40)
+    print(f"   {Color.CYAN+Color.BOLD}[사고 기록 조회] 나의 마음 일지{Color.ENDC}")
+    print("="*40)
+
+    records = load_records()
+    if not records:
+        print("\n아직 저장된 기록이 없습니다.")
+        print("사고 전환 훈련이나 SOS 모드를 통해 첫 기록을 남겨보세요.")
+    else:
+        print("\n[최신순으로 모든 기록을 표시합니다]\n")
+        for record in reversed(records):
+            date_str = record.get('date', '날짜 없음')
+            memo_str = f" | 메모: {record.get('memo')}" if record.get('memo') else ""
+            
+            if record.get('type') == 'ABCDE':
+                print(
+                    f"[{date_str}] [ABCDE] "
+                    f"사건: {record.get('adversity', '')} | "
+                    f"감정점수: {record.get('consequence', '')} | "
+                    f"새로운 생각: {record.get('effect', '')}{memo_str}"
+                )
+            elif record.get('type') == 'SOS':
+                g = record.get('grounding', {})
+                grounding_str = ""
+                if g:
+                    grounding_str = (
+                        f" | 그라운딩: "
+                        f"본 것({g.get('sight', '')}), "
+                        f"느낀 것({g.get('touch', '')}), "
+                        f"들은 것({g.get('sound', '')}), "
+                        f"맡은 것({g.get('smell', '')}), "
+                        f"맛본 것({g.get('taste', '')})"
+                    )
+                print(
+                    f"[{date_str}] [SOS] "
+                    f"{record.get('course', '')}{memo_str}{grounding_str}"
+                )
+            else:
+                print(f"[{date_str}] 알 수 없는 기록 타입: {record}")
+
+            print("-" * 20)
+
+    print("\n" + "="*40)
+    input("메뉴로 돌아가려면 Enter를 누르세요.")
+
+def print_menu():
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\n" + Color.HEADER + "■"*40 + Color.ENDC)
+    print(f"      {Color.BOLD}Inner-Peace : 마음 챙김 도구{Color.ENDC}")
+    print(Color.HEADER + "■"*40 + Color.ENDC)
+    print(f"{Color.GREEN}1. 급성 스트레스 완화 (SOS 모드){Color.ENDC}")
+    print(f"{Color.GREEN}2. 사고 전환 훈련 (ABCDE 모델링){Color.ENDC}")
+    print(f"{Color.GREEN}3. 사고 기록 조회 (History){Color.ENDC}")
+    print(f"{Color.GREEN}4. 프로그램 종료{Color.ENDC}")
+    print("-" * 40)
+
+def main():
+    if os.name == 'nt':
+        os.system('color')
+
+    while True:
+        print_menu()
+        choice = input(f"{Color.BOLD}원하는 기능을 선택하세요 >>{Color.ENDC} ")
+
+        if choice == '1':
+            sos_mode()
+        elif choice == '2':
+            abcde_training()
+        elif choice == '3':
+            view_history()
+        elif choice == '4':
+            print(f"\n{Color.CYAN}프로그램을 종료합니다. 오늘도 평안하세요.{Color.ENDC}")
+            sys.exit()
+        else:
+            print(f"\n{Color.FAIL}[!] 잘못된 입력입니다.{Color.ENDC}")
+            time.sleep(1)
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = InnerPeaceApp(root)
-    root.mainloop()
+    main()
