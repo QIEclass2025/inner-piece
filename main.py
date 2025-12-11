@@ -1,27 +1,21 @@
-import sys
+import tkinter as tk
+from tkinter import messagebox
 import time
 import random
-import os
 
 # ==========================================
-# [1] 데이터 설계 및 상수 정의
+# [1] 데이터 및 로직 (기존과 동일)
 # ==========================================
 
-# 기획서 2.2항: ABCDE 모델 데이터를 담을 클래스
 class MentalRecord:
     def __init__(self, adversity, belief, consequence, disputation, effect):
-        self.adversity = adversity  # A: 선행사건
-        self.belief = belief        # B: 신념 (비합리적 생각)
-        self.consequence = consequence # C: 결과 (감정 강도 1~10)
-        self.disputation = disputation # D: 논박
-        self.effect = effect        # E: 효과 (합리적 신념)
-        self.date = time.strftime('%Y-%m-%d %H:%M:%S') # 기록 시간
+        self.adversity = adversity
+        self.belief = belief
+        self.consequence = consequence
+        self.disputation = disputation
+        self.effect = effect
+        self.date = time.strftime('%Y-%m-%d %H:%M:%S')
 
-    # 객체 정보를 문자열로 반환 (저장/출력용)
-    def __str__(self):
-        return f"[{self.date}] 사건: {self.adversity} | 감정점수: {self.consequence}"
-
-# 기획서 2.2 (2)항: 논박(D) 단계에서 사용할 '가짜 AI' 질문 리스트
 QUESTION_BANK = [
     "그 생각이 100% 사실이라는 확실한 법적 증거가 있습니까?",
     "그렇게 생각하는 것이 지금 이 문제를 해결하는 데 실제로 도움이 됩니까?",
@@ -31,128 +25,160 @@ QUESTION_BANK = [
 ]
 
 # ==========================================
-# [2] 핵심 기능 함수 구현
+# [2] GUI 애플리케이션 클래스
 # ==========================================
 
-def sos_mode():
-    """
-    기획서 2.2 (1): 급성 스트레스 완화 (SOS 모드)
-    4-7-8 호흡법을 텍스트와 타이머로 안내
-    """
-    print("\n" + "="*40)
-    print("   [SOS 모드] 4-7-8 호흡 테라피")
-    print("="*40)
-    print("긴장을 풀고 화면의 지시에 따라 호흡하세요.")
-    print("준비되셨으면 Enter를 누르세요...", end="")
-    input()
-
-    # 간단하게 3세트만 반복 (실제 구현 시 늘릴 수 있음)
-    for i in range(1, 4):
-        print(f"\n[Cycle {i}/3]")
+class InnerPeaceApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Inner-Peace: 디지털 인지 치료")
+        self.root.geometry("500x600") # 창 크기 설정
         
-        print("들이마시세요 (4초) ... 흡!", end="")
-        sys.stdout.flush()
-        time.sleep(4)
-        print(" 완료")
+        # 현재 화면을 담을 프레임 (컨테이너)
+        self.current_frame = None
         
-        print("참으세요 (7초) ....... 멈춤", end="")
-        sys.stdout.flush()
-        time.sleep(7)
-        print(" 완료")
-        
-        print("내뱉으세요 (8초) ..... 후~", end="")
-        sys.stdout.flush()
-        time.sleep(8)
-        print(" 완료")
-    
-    print("\n[안내] 호흡이 끝났습니다. 마음이 조금 편안해지셨나요?")
-    input("메뉴로 돌아가려면 Enter를 누르세요.")
+        # 앱 시작 시 메인 메뉴 보여주기
+        self.show_main_menu()
 
-def abcde_training():
-    """
-    기획서 2.2 (2): 사고 전환 훈련 (ABCDE 모델)
-    사용자 입력을 받고, 랜덤 질문을 던진 후 결과를 저장
-    """
-    print("\n" + "="*40)
-    print("   [사고 전환 훈련] ABCDE 모델링")
-    print("="*40)
-    
-    # [cite_start]A: 선행사건 [cite: 26]
-    adversity = input("\n[A] 어떤 사건 때문에 스트레스를 받으셨나요?\n>> ")
-    
-    # [cite_start]B: 신념 [cite: 27]
-    belief = input("\n[B] 그 사건에 대해 순간적으로 든 생각은 무엇인가요?\n>> ")
-    
-    # [cite_start]C: 결과 [cite: 28]
-    while True:
-        try:
-            consequence = int(input("\n[C] 그로 인한 감정의 고통을 1~10 사이 숫자로 입력해주세요.\n>> "))
-            if 1 <= consequence <= 10:
-                break
-            print("1에서 10 사이의 숫자로만 입력해주세요.")
-        except ValueError:
-            print("숫자를 입력해주세요.")
+    # --- 화면 전환 유틸리티 ---
+    def switch_frame(self, frame_class):
+        """기존 화면을 지우고 새로운 화면을 띄우는 함수"""
+        if self.current_frame:
+            self.current_frame.destroy()
+        self.current_frame = frame_class(self.root, self)
+        self.current_frame.pack(fill="both", expand=True)
 
-    # [cite_start]D: 논박 (핵심 기능) [cite: 29, 30]
-    print("\n" + "-"*40)
-    print("🤖 Inner-Peace AI가 당신의 생각에 대해 묻습니다:")
-    ai_question = random.choice(QUESTION_BANK) # 랜덤 질문 선택
-    print(f"\"{ai_question}\"")
-    print("-"*40)
-    
-    disputation = input("\n[D] 위 질문에 대해 스스로 반박하거나 답변해 보세요.\n>> ")
+    def show_main_menu(self):
+        self.switch_frame(MainMenuFrame)
 
-    # [cite_start]E: 효과 [cite: 31]
-    effect = input("\n[E] 논박을 통해 새롭게 정리된 합리적인 생각은 무엇인가요?\n>> ")
+    def show_sos_mode(self):
+        self.switch_frame(SOSModeFrame)
 
-    # 객체 생성 (나중에 파일 저장 기능과 연결)
-    record = MentalRecord(adversity, belief, consequence, disputation, effect)
-    
-    print("\n[저장 완료] 성공적으로 기록되었습니다. (현재는 메모리에만 저장됨)")
-    # TODO: 여기서 save_file(record) 같은 함수를 호출해야 함
-    input("메뉴로 돌아가려면 Enter를 누르세요.")
-
-def view_history():
-    """
-    기획서 2.2 (3): 사고 기록 조회
-    """
-    print("\n[기록 조회] 현재는 파일 저장 기능이 구현되지 않았습니다.")
-    # TODO: 파일 입출력 구현 후 연동
-    input("메뉴로 돌아가려면 Enter를 누르세요.")
+    def show_abcde_training(self):
+        self.switch_frame(ABCDEFrame)
 
 # ==========================================
-# [3] 메인 화면 및 루프
+# [3] 각 화면(Frame) 정의
 # ==========================================
 
-def print_menu():
-    # [cite_start]기획서 2.1: 메인 메뉴 구성 [cite: 13-18]
-    os.system('cls' if os.name == 'nt' else 'clear') # 화면 지우기 (선택사항)
-    print("\n" + "■"*40)
-    print("      Inner-Peace : 마음 챙김 도구")
-    print("■"*40)
-    print("1. 급성 스트레스 완화 (SOS 모드)")
-    print("2. 사고 전환 훈련 (ABCDE 모델링)")
-    print("3. 사고 기록 조회 (History)")
-    print("4. 프로그램 종료")
-    print("-" * 40)
+# 1. 메인 메뉴 화면
+class MainMenuFrame(tk.Frame):
+    def __init__(self, master, app):
+        super().__init__(master)
+        self.app = app
+        
+        # 제목
+        tk.Label(self, text="Inner-Peace", font=("Helvetica", 24, "bold"), pady=40).pack()
+        tk.Label(self, text="마음 챙김 도구", font=("Helvetica", 12)).pack()
+        
+        # 버튼들
+        tk.Button(self, text="1. 급성 스트레스 완화 (SOS)", font=("Helvetica", 14), width=30, height=2,
+                  command=self.app.show_sos_mode).pack(pady=10)
+        
+        tk.Button(self, text="2. 사고 전환 훈련 (ABCDE)", font=("Helvetica", 14), width=30, height=2,
+                  command=self.app.show_abcde_training).pack(pady=10)
+        
+        tk.Button(self, text="3. 종료", font=("Helvetica", 14), width=30, height=2,
+                  command=master.quit).pack(pady=10)
 
-def main():
-    while True:
-        print_menu()
-        choice = input("원하는 기능을 선택하세요 >> ")
+# 2. SOS 모드 화면
+class SOSModeFrame(tk.Frame):
+    def __init__(self, master, app):
+        super().__init__(master)
+        self.app = app
+        self.step = 0 # 호흡 단계
+        
+        tk.Label(self, text="SOS: 4-7-8 호흡", font=("Helvetica", 18, "bold"), pady=20).pack()
+        
+        self.status_label = tk.Label(self, text="시작 버튼을 누르세요", font=("Helvetica", 20), fg="blue")
+        self.status_label.pack(pady=50)
+        
+        self.btn_start = tk.Button(self, text="호흡 시작", command=self.start_breathing)
+        self.btn_start.pack()
+        
+        tk.Button(self, text="메인으로 돌아가기", command=self.app.show_main_menu).pack(side="bottom", pady=20)
 
-        if choice == '1':
-            sos_mode()
-        elif choice == '2':
-            abcde_training()
-        elif choice == '3':
-            view_history()
-        elif choice == '4':
-            print("\n프로그램을 종료합니다. 오늘도 평안하세요.")
-            sys.exit()
-        else:
-            print("\n[!] 잘못된 입력입니다.")
-            time.sleep(1)
+    def start_breathing(self):
+        self.btn_start.config(state="disabled") # 중복 클릭 방지
+        self.run_cycle(3) # 3세트 반복
 
+    def run_cycle(self, remaining_cycles):
+        if remaining_cycles <= 0:
+            self.status_label.config(text="편안해지셨나요?", fg="green")
+            self.btn_start.config(state="normal")
+            return
+
+        # GUI에서는 time.sleep을 쓰면 멈춥니다. after()를 써야 합니다.
+        # 1. 들이마시기 (4초)
+        self.status_label.config(text="들이마시세요 (4초)", fg="red")
+        self.after(4000, lambda: self.hold_breath(remaining_cycles))
+
+    def hold_breath(self, remaining_cycles):
+        # 2. 참기 (7초)
+        self.status_label.config(text="숨을 참으세요 (7초)", fg="orange")
+        self.after(7000, lambda: self.exhale_breath(remaining_cycles))
+
+    def exhale_breath(self, remaining_cycles):
+        # 3. 내뱉기 (8초)
+        self.status_label.config(text="내뱉으세요 (8초)", fg="blue")
+        self.after(8000, lambda: self.run_cycle(remaining_cycles - 1))
+
+# 3. ABCDE 훈련 화면
+class ABCDEFrame(tk.Frame):
+    def __init__(self, master, app):
+        super().__init__(master)
+        self.app = app
+        
+        tk.Label(self, text="ABCDE 사고 전환", font=("Helvetica", 16, "bold")).pack(pady=10)
+        
+        # 입력 필드들을 담을 컨테이너
+        form_frame = tk.Frame(self)
+        form_frame.pack(pady=10)
+        
+        # A: 사건
+        tk.Label(form_frame, text="[A] 어떤 사건이 있었나요?").grid(row=0, column=0, sticky="w")
+        self.entry_a = tk.Entry(form_frame, width=40)
+        self.entry_a.grid(row=1, column=0, pady=(0, 10))
+        
+        # B: 신념
+        tk.Label(form_frame, text="[B] 그때 든 생각은?").grid(row=2, column=0, sticky="w")
+        self.entry_b = tk.Entry(form_frame, width=40)
+        self.entry_b.grid(row=3, column=0, pady=(0, 10))
+
+        # D: 논박 (버튼을 누르면 질문이 나옴)
+        self.btn_ask = tk.Button(self, text="AI 논박 질문 받기", command=self.generate_question, bg="lightgray")
+        self.btn_ask.pack(pady=5)
+        
+        self.lbl_question = tk.Label(self, text="", fg="blue", wraplength=400)
+        self.lbl_question.pack(pady=5)
+        
+        # D 답변
+        tk.Label(self, text="[D] 반박해 보세요:").pack()
+        self.entry_d = tk.Entry(self, width=40)
+        self.entry_d.pack()
+        
+        # 저장 버튼
+        tk.Button(self, text="기록 저장하기", command=self.save_record, bg="lightblue").pack(pady=20)
+        
+        tk.Button(self, text="메인으로 돌아가기", command=self.app.show_main_menu).pack(side="bottom", pady=10)
+
+    def generate_question(self):
+        q = random.choice(QUESTION_BANK)
+        self.lbl_question.config(text=f"AI: {q}")
+
+    def save_record(self):
+        # 간단한 저장 확인 메시지
+        if not self.entry_a.get() or not self.entry_d.get():
+            messagebox.showwarning("경고", "내용을 입력해주세요.")
+            return
+        
+        messagebox.showinfo("성공", "마음 속에 기록되었습니다.\n(파일 저장은 다음 단계 구현)")
+        self.app.show_main_menu()
+
+# ==========================================
+# [4] 메인 실행
+# ==========================================
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = InnerPeaceApp(root)
+    root.mainloop()
