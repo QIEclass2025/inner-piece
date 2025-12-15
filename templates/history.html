@@ -27,7 +27,16 @@
                 기록
                 {% endif %}
             </span>
-            <span style="color: var(--muted-text); font-size: 0.9rem;">{{ record.date }}</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: var(--muted-text); font-size: 0.9rem;">{{ record.date }}</span>
+                {% if record.id %}
+                <button onclick="deleteRecord('{{ record.id }}')" class="btn-icon"
+                    style="background: none; border: none; cursor: pointer; color: var(--muted-text); padding: 0.2rem;"
+                    title="기록 삭제">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+                {% endif %}
+            </div>
         </div>
 
         {% if record.type == 'ABCDE' %}
@@ -64,4 +73,30 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+    function deleteRecord(id) {
+        if (!confirm('정말 이 기록을 삭제하시겠습니까?')) return;
+
+        fetch(`/api/delete_record/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('삭제에 실패했습니다: ' + (data.message || '알 수 없는 오류'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('오류가 발생했습니다.');
+            });
+    }
+</script>
 {% endblock %}

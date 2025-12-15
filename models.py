@@ -1,11 +1,13 @@
 import json
 import time
 import os
+import uuid
 
 HISTORY_FILE = "inner_peace_history.json"
 
 class MentalRecord:
     def __init__(self, adversity, belief, consequence, disputation, effect, memo=""):
+        self.id = str(uuid.uuid4())
         self.adversity = adversity
         self.belief = belief
         self.consequence = consequence
@@ -16,6 +18,7 @@ class MentalRecord:
 
     def to_dict(self):
         return {
+            "id": self.id,
             "type": "ABCDE",
             "date": self.date,
             "adversity": self.adversity,
@@ -28,6 +31,7 @@ class MentalRecord:
 
 class SOSRecord:
     def __init__(self, course, memo="", grounding=None):
+        self.id = str(uuid.uuid4())
         self.course = course
         self.memo = memo
         self.grounding = grounding if grounding is not None else {}
@@ -35,6 +39,7 @@ class SOSRecord:
 
     def to_dict(self):
         return {
+            "id": self.id,
             "type": "SOS",
             "date": self.date,
             "course": self.course,
@@ -66,6 +71,24 @@ def load_records():
     except (IOError, json.JSONDecodeError) as e:
         print(f"Error reading file: {e}")
         return []
+
+def delete_record(record_id):
+    """
+    Deletes a record by ID.
+    """
+    try:
+        records = load_records()
+        new_records = [r for r in records if r.get('id') != record_id]
+        
+        if len(records) == len(new_records):
+            return False # ID not found
+            
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(new_records, f, ensure_ascii=False, indent=4)
+        return True
+    except (IOError, TypeError) as e:
+        print(f"Error deleting record: {e}")
+        return False
 
 QUESTION_BANK = [
     "그렇게 생각하는 것이 지금 이 문제를 해결하는 데 실제로 도움이 됩니까?",

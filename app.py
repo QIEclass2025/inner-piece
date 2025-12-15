@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from models import SOSRecord, MentalRecord, save_record, load_records, QUESTION_BANK
+from models import SOSRecord, MentalRecord, save_record, load_records, delete_record, QUESTION_BANK
 import random
 
 app = Flask(__name__)
@@ -57,6 +57,12 @@ def api_save_abcde():
     if save_record(record.to_dict()):
         return jsonify({"status": "success"})
     return jsonify({"status": "error"}), 500
+
+@app.route('/api/delete_record/<string:record_id>', methods=['DELETE'])
+def api_delete_record(record_id):
+    if delete_record(record_id):
+        return jsonify({"status": "success"})
+    return jsonify({"status": "error", "message": "Record not found"}), 404
 
 @app.route('/history')
 def history():
