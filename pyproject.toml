@@ -1,0 +1,9 @@
+[project]
+name = "inner-piece"
+version = "0.1.0"
+description = "Inner Piece : 마음 챙김 도구 (Web GUI)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask",
+]
