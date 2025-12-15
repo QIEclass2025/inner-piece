@@ -67,7 +67,20 @@ def load_records():
         return []
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            records = json.load(f)
+            
+        # Migration: Add ID to legacy records if missing
+        migrated = False
+        for record in records:
+            if 'id' not in record:
+                record['id'] = str(uuid.uuid4())
+                migrated = True
+        
+        if migrated:
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(records, f, ensure_ascii=False, indent=4)
+                
+        return records
     except (IOError, json.JSONDecodeError) as e:
         print(f"Error reading file: {e}")
         return []
