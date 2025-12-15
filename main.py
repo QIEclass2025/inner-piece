@@ -68,7 +68,6 @@ class SOSRecord:
         }
 
 QUESTION_BANK = [
-    "그 생각이 100% 사실이라는 확실한 법적 증거가 있습니까?",
     "그렇게 생각하는 것이 지금 이 문제를 해결하는 데 실제로 도움이 됩니까?",
     "가장 친한 친구가 나와 똑같은 상황에 처했다면, 친구에게도 그렇게 말해줄 건가요?",
     "이 상황을 긍정적으로, 혹은 배울 점으로 해석할 수 있는 여지는 전혀 없나요?",
@@ -128,9 +127,9 @@ def get_numeric_input(prompt, min_val, max_val, cancel_value=None):
 def get_yes_no_input(prompt):
     while True:
         choice = input(prompt).lower()
-        if choice in ['y', 'yes']:
+        if choice in ['y', 'yes', 'ㅛ']:
             return True
-        elif choice in ['n', 'no']:
+        elif choice in ['n', 'no', 'ㅜ']:
             return False
         print(f"{Color.WARNING}'y' 또는 'n'으로만 입력해주세요.{Color.ENDC}")
 
@@ -175,9 +174,28 @@ def sos_mode():
         message_index = (i - 1) % len(coaching_messages)
         print(f"{Color.WARNING}코칭: {coaching_messages[message_index]}{Color.ENDC}")
         
-        print(f"{Color.GREEN}들이마시세요 (4초)...{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(4); print(" 흡!")
-        print(f"{Color.WARNING}참으세요 (7초).......{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(7); print(" 멈춤")
-        print(f"{Color.BLUE}내뱉으세요 (8초).....{Color.ENDC}", end=""); sys.stdout.flush(); time.sleep(8); print(" 후~")
+        for t in range(4, 0, -1):
+            sys.stdout.write(f"\r{Color.GREEN}들이마시세요 ({t}초)...{Color.ENDC}   ")
+            sys.stdout.flush()
+            time.sleep(1)
+        sys.stdout.write("\r" + " " * 30 + "\r") # Clear line
+        print(f"{Color.GREEN}들이마시세요 (4초)...{Color.ENDC} 흡!")
+
+        # Hold
+        for t in range(7, 0, -1):
+            sys.stdout.write(f"\r{Color.WARNING}참으세요 ({t}초).......{Color.ENDC}   ")
+            sys.stdout.flush()
+            time.sleep(1)
+        sys.stdout.write("\r" + " " * 30 + "\r") # Clear line
+        print(f"{Color.WARNING}참으세요 (7초).......{Color.ENDC} 멈춤")
+
+        # Exhale
+        for t in range(8, 0, -1):
+            sys.stdout.write(f"\r{Color.BLUE}내뱉으세요 ({t}초).....{Color.ENDC}   ")
+            sys.stdout.flush()
+            time.sleep(1)
+        sys.stdout.write("\r" + " " * 30 + "\r") # Clear line
+        print(f"{Color.BLUE}내뱉으세요 (8초).....{Color.ENDC} 후~")
 
     print(f"\n{Color.GREEN}[안내] 호흡이 끝났습니다. 마음이 조금 편안해지셨나요?{Color.ENDC}")
 
@@ -215,27 +233,70 @@ def abcde_training():
     print("\n" + "="*40)
     print(f"   {Color.CYAN+Color.BOLD}[사고 전환 훈련] ABCDE 모델링{Color.ENDC}")
     print("="*40)
-    
-    adversity = input(f"\n{Color.BLUE+Color.BOLD}[A] 어떤 사건 때문에 스트레스를 받으셨나요?{Color.ENDC}\n>> ")
-    belief = input(f"\n{Color.BLUE+Color.BOLD}[B] 그 사건에 대해 순간적으로 든 생각은 무엇인가요?{Color.ENDC}\n>> ")
-    consequence = get_numeric_input(f"\n{Color.BLUE+Color.BOLD}[C] 그로 인한 감정의 고통을 1~10 사이 숫자로 입력해주세요.{Color.ENDC}\n>> ", 1, 10)
+    print(f"정보: 각 단계에서 이전 단계로 가려면 '{Color.WARNING}p{Color.ENDC}', 메인 메뉴로 가려면 '{Color.WARNING}m{Color.ENDC}'을 입력하세요.")
 
-    print("\n" + "-"*40)
-    print(f"🤖 {Color.HEADER+Color.BOLD}Inner-Peace AI가 당신의 생각에 대해 묻습니다:{Color.ENDC}")
+    state = 'A'
+    data = {'adversity': '', 'belief': '', 'consequence': '', 'disputation': '', 'effect': '', 'memo': ''}
     ai_question = random.choice(QUESTION_BANK)
-    print(f"{Color.CYAN}\"{ai_question}\"{Color.ENDC}")
-    print("-"*40)
-    
-    disputation = input(f"\n{Color.BLUE+Color.BOLD}[D] 위 질문에 대해 스스로 반박하거나 답변해 보세요.{Color.ENDC}\n>> ")
-    effect = input(f"\n{Color.BLUE+Color.BOLD}[E] 논박을 통해 새롭게 정리된 합리적인 생각은 무엇인가요?{Color.ENDC}\n>> ")
-    
-    memo = input(f"\n{Color.BLUE+Color.BOLD}(선택) 현재 훈련에 대해 한 줄 메모를 남겨보세요:{Color.ENDC}\n>> ")
 
-    if get_yes_no_input(f"\n{Color.BOLD}이 훈련을 기록하시겠습니까? (y/n){Color.ENDC} "):
-        record = MentalRecord(adversity, belief, consequence, disputation, effect, memo)
-        if save_record(record):
-            print(f"\n{Color.GREEN}[저장 완료] 오늘의 훈련이 성공적으로 기록되었습니다.{Color.ENDC}")
+    while state != 'EXIT':
+        if state == 'A':
+            res = input(f"\n{Color.BLUE+Color.BOLD}[A] 어떤 사건 때문에 스트레스를 받으셨나요?{Color.ENDC}\n>> ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': print(f"{Color.WARNING}첫 단계에서는 뒤로 갈 수 없습니다.{Color.ENDC}"); continue
+            data['adversity'] = res; state = 'B'
+        
+        elif state == 'B':
+            res = input(f"\n{Color.BLUE+Color.BOLD}[B] 그 사건에 대해 순간적으로 든 생각은 무엇인가요?{Color.ENDC}\n>> ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': state = 'A'; continue
+            data['belief'] = res; state = 'C'
 
+        elif state == 'C':
+            res = input(f"\n{Color.BLUE+Color.BOLD}[C] 그로 인한 감정의 고통을 1~10 사이 숫자로 입력해주세요.{Color.ENDC}\n>> ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': state = 'B'; continue
+            try:
+                val = int(res)
+                if not (1 <= val <= 10):
+                    print(f"{Color.WARNING}1에서 10 사이의 숫자로만 입력해주세요.{Color.ENDC}"); continue
+                data['consequence'] = val
+                print("\n" + "-"*40); print(f"💫 {Color.HEADER+Color.BOLD}Inner-Peace 시스템이 당신의 생각에 대해 묻습니다:{Color.ENDC}"); print(f"{Color.CYAN}\"{ai_question}\"{Color.ENDC}"); print("-"*40)
+                state = 'D'
+            except ValueError:
+                print(f"{Color.FAIL}숫자를 입력해주세요.{Color.ENDC}"); continue
+
+        elif state == 'D':
+            res = input(f"\n{Color.BLUE+Color.BOLD}[D] 위 질문에 대해 스스로 반박하거나 답변해 보세요.{Color.ENDC}\n>> ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': state = 'C'; continue
+            data['disputation'] = res; state = 'E'
+        
+        elif state == 'E':
+            res = input(f"\n{Color.BLUE+Color.BOLD}[E] 논박을 통해 새롭게 정리된 합리적인 생각은 무엇인가요?{Color.ENDC}\n>> ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': state = 'D'; continue
+            data['effect'] = res; state = 'MEMO'
+            
+        elif state == 'MEMO':
+            res = input(f"\n{Color.BLUE+Color.BOLD}(선택) 현재 훈련에 대해 한 줄 메모를 남겨보세요:{Color.ENDC}\n>> ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': state = 'E'; continue
+            data['memo'] = res; state = 'SAVE'
+            
+        elif state == 'SAVE':
+            res = input(f"\n{Color.BOLD}이 훈련을 기록하시겠습니까? (y/n){Color.ENDC} ").lower()
+            if res == 'm': print(f"\n{Color.WARNING}훈련을 중단하고 메인 메뉴로 돌아갑니다.{Color.ENDC}"); input("계속하려면 Enter를 누르세요."); return
+            if res == 'p': state = 'MEMO'; continue
+            if res in ['y', 'yes', 'ㅛ']:
+                record = MentalRecord(data['adversity'], data['belief'], data['consequence'], data['disputation'], data['effect'], data['memo'])
+                if save_record(record): print(f"\n{Color.GREEN}[저장 완료] 오늘의 훈련이 성공적으로 기록되었습니다.{Color.ENDC}")
+                state = 'EXIT'
+            elif res in ['n', 'no', 'ㅜ']:
+                state = 'EXIT'
+            else:
+                print(f"{Color.WARNING}'y' 또는 'n'으로만 입력해주세요.{Color.ENDC}"); continue
+                
     input("\n메뉴로 돌아가려면 Enter를 누르세요.")
 
 def view_history():
