@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Inner Peace{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons (Optional, using CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">
+            <i class="fa-solid fa-seedling"></i> Inner Peace
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('home') }}">홈</a>
+            <a href="{{ url_for('sos') }}">SOS (호흡)</a>
+            <a href="{{ url_for('abcde') }}">사고 전환</a>
+            <a href="{{ url_for('history') }}">기록</a>
+        </div>
+    </nav>
+    
+    <div class="container animate-fade-in">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Inner Peace Project. 오늘도 평안하세요.</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

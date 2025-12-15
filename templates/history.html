@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 2rem;">
+    <h2>나의 마음 일지</h2>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 1rem;">
+    {% if not records %}
+    <div class="card" style="text-align: center; padding: 3rem;">
+        <p style="color: var(--muted-text);">아직 기록이 없습니다.<br>오늘의 마음을 기록해 보세요.</p>
+        <div style="margin-top: 1rem;">
+            <a href="{{ url_for('home') }}" class="btn">기록하러 가기</a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% for record in records %}
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+            <span style="font-weight: bold; color: var(--accent-color);">
+                {% if record.type == 'ABCDE' %}
+                <i class="fa-solid fa-brain"></i> ABCDE 사고 전환
+                {% elif record.type == 'SOS' %}
+                <i class="fa-solid fa-heart-pulse"></i> SOS 호흡 테라피
+                {% else %}
+                기록
+                {% endif %}
+            </span>
+            <span style="color: var(--muted-text); font-size: 0.9rem;">{{ record.date }}</span>
+        </div>
+
+        {% if record.type == 'ABCDE' %}
+        <div style="display: grid; gap: 0.5rem;">
+            <p><strong>사건:</strong> {{ record.adversity }}</p>
+            <p><strong>새로운 생각:</strong> {{ record.effect }}</p>
+            {% if record.memo %}
+            <p style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #eee;">
+                <small>📝 {{ record.memo }}</small>
+            </p>
+            {% endif %}
+        </div>
+        {% elif record.type == 'SOS' %}
+        <div>
+            <p><strong>코스:</strong> {{ record.course }}</p>
+            {% if record.grounding %}
+            <div
+                style="margin-top: 0.5rem; background: #f8f9fa; padding: 0.8rem; border-radius: 8px; font-size: 0.9rem;">
+                <p><strong>그라운딩:</strong></p>
+                <ul style="list-style: none; padding-left: 0.5rem; margin-top: 0.3rem;">
+                    <li>👁️ {{ record.grounding.sight }}</li>
+                    <li>✋ {{ record.grounding.touch }}</li>
+                    <li>👂 {{ record.grounding.sound }}</li>
+                </ul>
+            </div>
+            {% endif %}
+            {% if record.memo %}
+            <p style="margin-top: 0.5rem;">
+                <small>📝 {{ record.memo }}</small>
+            </p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

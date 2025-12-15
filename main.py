@@ -179,7 +179,7 @@ def sos_mode():
             sys.stdout.flush()
             time.sleep(1)
         sys.stdout.write("\r" + " " * 30 + "\r") # Clear line
-        print(f"{Color.GREEN}들이마시세요 (4초)...{Color.ENDC} 흡!")
+        print(f"{Color.GREEN}들이마시세요 (4초)...{Color.ENDC} Breathe~")
 
         # Hold
         for t in range(7, 0, -1):
