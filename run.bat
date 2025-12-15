@@ -1,8 +1,8 @@
 @echo off
-title Inner-Piece Launcher
+title Inner Piece Launcher
 echo.
 echo ====================================================
-echo        Inner-Piece : 마음 챙김 도구 실행 중...
+echo        Inner Piece : 마음 챙김 도구 실행 중...
 echo ====================================================
 echo.
 echo 필수 구성 요소 확인 및 설치 중... (처음 실행 시 시간이 걸릴 수 있습니다)
