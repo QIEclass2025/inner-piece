@@ -458,14 +458,31 @@ class HistoryTab(QWidget):
             self.table.setItem(row, 3, memo_item)
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    
-    # Set global font
-    font = QFont("Malgun Gothic", 10) # Using Malgun Gothic for Korean support on Windows/General
-    if sys.platform == "darwin":
-        font = QFont("AppleGothic", 10)
-    app.setFont(font)
-    
-    window = InnerPeaceApp()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        app = QApplication(sys.argv)
+        
+        # Set global font
+        font = QFont("Malgun Gothic", 10) # Using Malgun Gothic for Korean support on Windows/General
+        if sys.platform == "darwin":
+            font = QFont("AppleGothic", 10)
+        app.setFont(font)
+        
+        window = InnerPeaceApp()
+        window.show()
+        sys.exit(app.exec())
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        print("="*60)
+        print("오류가 발생했습니다 (Error Occurred)")
+        print("="*60)
+        print(error_msg)
+        print("="*60)
+        
+        # Write to file
+        with open("error_log.txt", "w", encoding="utf-8") as f:
+            f.write(error_msg)
+            
+        print("오류 내용이 'error_log.txt' 파일에 저장되었습니다.")
+        input("종료하려면 Enter 키를 누르세요...") # Prevent window closing immediately
+
